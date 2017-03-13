@@ -38,6 +38,18 @@ pub fn derive_option_constructor(input: TokenStream) -> TokenStream {
     expanded.to_string().parse().unwrap()
 }
 
+fn is_option_ident(f: &(&syn::Ident, &syn::Ty)) -> bool {
+    match *f.1 {
+        syn::Ty::Path(_, ref path) => {
+            match path.segments.first().unwrap().ident.as_ref() {
+                "Option" => true,
+                _ => false,
+            }
+        }
+        _ => false,
+    }
+}
+
 fn expand_function(ast: syn::MacroInput) -> quote::Tokens {
     let fields: Vec<_> = match ast.body {
         syn::Body::Struct(syn::VariantData::Struct(ref fields)) => {
@@ -45,18 +57,6 @@ fn expand_function(ast: syn::MacroInput) -> quote::Tokens {
         }
         syn::Body::Struct(syn::VariantData::Unit) => vec![],
         _ => panic!("#[derive(OptionConstructor)] can only be used with braced structs"),
-    };
-
-    let is_option_ident = |ref f: &(&syn::Ident, &syn::Ty)| -> bool {
-        match *f.1 {
-            syn::Ty::Path(_, ref path) => {
-                match path.segments.first().unwrap().ident.as_ref() {
-                    "Option" => true,
-                    _ => false,
-                }
-            }
-            _ => false,
-        }
     };
 
     let field_compulsory: Vec<_> = fields.iter()
@@ -71,15 +71,7 @@ fn expand_function(ast: syn::MacroInput) -> quote::Tokens {
     let none = syn::Ident::from("None");
     let field_all: Vec<_> = fields.iter().map(|f| f.0).collect();
     let values: Vec<_> = fields.iter()
-        .map(|f| match *f.1 {
-            syn::Ty::Path(_, ref path) => {
-                match path.segments.first().unwrap().ident.as_ref() {
-                    "Option" => &none,
-                    _ => f.0,
-                }
-            }
-            _ => &none,
-        })
+        .map(|f| if is_option_ident(f) { &none } else { f.0 })
         .collect();
 
     let ty_compulsory: Vec<_> = fields.iter().map(|f| f.1).collect();
@@ -92,9 +84,7 @@ fn expand_function(ast: syn::MacroInput) -> quote::Tokens {
                         .first()
                         .unwrap()
                         .parameters {
-                    if let &syn::Ty::Path(_, ref path) = param.types.first().unwrap() {
-                        return (*path).clone();
-                    }
+                    return param.types.first().unwrap();
                 }
             }
 
@@ -106,7 +96,7 @@ fn expand_function(ast: syn::MacroInput) -> quote::Tokens {
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     quote! {
         impl #impl_generics #struct_name #ty_generics #where_clause {
-            pub fn new(#( #field_compulsory: #ty_compulsory, )*) -> #struct_name {
+            pub fn new(#( #field_compulsory: #ty_compulsory, )*) -> #struct_name #ty_generics {
                 #struct_name {
                     #( #field_all: #values, )*
                 }
