@@ -1,6 +1,6 @@
 [package]
 name = "option-constructor-derive"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["iovxw <iovxw@outlook.com>"]
 license = "Unlicense"
 readme = "README.md"
@@ -14,5 +14,5 @@ keywords = ["constructor", "derive"]
 proc-macro = true
 
 [dependencies]
-syn = "0.11"
-quote = "0.3.3"
+syn = "^0.11"
+quote = "^0.3"
